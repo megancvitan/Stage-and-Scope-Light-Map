@@ -9,7 +9,7 @@ import pyvisa as visa
 import time 
 import StageController as sc
 from StageController import onemm
-import talkingtorigol3 as t
+import talkingtorigol4 as t
 #import TalkingToRigol as tr
 
 # Create a ResourceManager object and connect to the Rigol oscilloscope
