@@ -8,10 +8,12 @@ Using a linear stage to image the light intensity of an LED with a photodiode. A
 
 -----ABOUT FILES-----
 
-main4\_grid.py is for execution of data collection.
-
-sillyscope is JS code for reading data from scope at 10 Hz.
+main\_grid6.py is for execution of data collection.
 
 TalkingToRigol allows communication with a Rigol Oscilloscope.
 
 StageController outlines the linear stage's capabilities of motion.
+
+Needs: filename and heatmap code
+
+Data now collects!
