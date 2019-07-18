@@ -19,7 +19,7 @@ correct IP address, they will be asked to input a file name. If there is no fold
 *TalkingToRigol* allows communication with a Rigol oscilloscope. It contains features that are specific to this type of scope, with model number DS1074. 
 
 * Connect an ethernet cable from the scope to the computer.
-* Always ensure that the IP address is correctly inputted in the code. It can be found on the scope by pressing on 'Utility' >> 'IO' >>'LAN Config.' >> 'Apply'.
+* Always ensure that the IP address is correctly inputted in the code. It can be found on the scope by pressing on 'Utility' >> 'IO' >> 'LAN Config.' >> 'Apply'.
 * You should get a message indicating a successful connection. If not, try checking the router (if applicable).
 
 *StageController* outlines the linear stage's capabilities of motion, such as moving to a specific predetermined position and moving a certain number of steps. 
