@@ -28,6 +28,8 @@ correct IP address, they will be asked to input a file name. If there is no fold
 * Ensure that the control box is plugging in and also switched on.
 * Each axis of the stage can also move in two directions: further from home or towards home, given sufficient distance from home to begin with. 
 * If using the Phidget control panel, please ensure that you can see the digital outputs from the control box, otherwise something is not connected properly.
+* The stage may have difficulties moving past ~55mm from home on the labelled Z axis. If you accidentally go over this threshold, you may hear a loud buzzing noise. 
+  To fix it, unplug the USB from the control box.
 
 *sillyscope* is JS code for reading data from scope at 10 Hz. This code is for if you want to increase the speed at which data is taken from the scope. 
 It is not used in my setup with the stage and scope.
