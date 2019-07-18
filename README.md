@@ -33,5 +33,6 @@ correct IP address, they will be asked to input a file name. If there is no fold
 It is not used in my setup with the stage and scope.
 
 ----- **CONTACT INFORMATION** -----
+
 If you have questions regarding the codes or the setup of the testing equipment/experiment, contact me at megan.cvitan@mail.mcgill.ca.
 
