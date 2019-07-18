@@ -15,6 +15,7 @@ correct IP address, they will be asked to input a file name. If there is no fold
 * Both '.csv' and a '.png' files will be found in a new directory, separate from the current one that the code runs from.
 * You may need to restart the kernel frequently. This is because the port is still being in use before you begin another scan.
 * Be careful when inputting the parameters for the grid; it can be tricky. Try printing the entries of the positions in the console prior to running a scan.
+* If you wish to play with the parameters of heatmap() to yield different-looking plots, copy the heatmap function into another '.py' file and feed it your desired '.csv' file.
 
 *TalkingToRigol* allows communication with a Rigol oscilloscope. It contains features that are specific to this type of scope, with model number DS1074. 
 
