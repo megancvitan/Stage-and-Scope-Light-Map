@@ -9,7 +9,6 @@ import pyvisa as visa
 import time 
 import StageController as sc
 from StageController import onemm #In the Z direction.
-import TalkingToRigol as t
 import sillyscope as sco
 import csv 
 import seaborn as sns
@@ -70,58 +69,6 @@ negypositions = list(range(startneg, stopneg, moveneg)) #Given a positive number
 #    negypositions.append(negy/10.0)
     
 #data = []
-        
-#Scanning with TalkingToRigol
-def scan(zpositions, ypositions, negypositions): 
-    #Moves stage and collects data along y axis.
-    File_name = output_dir + '\\' + file + ".csv"
-    File_object = open(File_name,"a") 
-    # Change to variable from input.
-    print("Saving data to " + File_name)
-    File_object.write("Y (mm)" +", "+ "Z (mm)" +", " + "Voltage (V)" + "\n") #Will append mean value.
-
-    for enum , z in enumerate(zpositions):
-        print('Moving Z')
-        #Moves the Z axis to the designated position in mm found in the zth entry.
-        sc.movezto(z) 
-        print('Done moving Z')
-        
-        #Check odd or even row number to determine direction of Y axis.
-        if enum%2 == 0: 
-            #For each mm we want to scan from our array
-            for y in ypositions: 
-                print('Moving Y')
-                #Move the stage one position in mm at a time.
-                sc.moveyto(y) 
-                print('Done moving Y')
-                print('Current position (y,z): (' + str(y) + ',' + str(z) + ')')
-                #Collect data from scope.
-                voltage=t.get_data() 
-                #Wait to ensure data collection occurred.
-                time.sleep(2) 
-                print("Writing to file ...")
-                #Will append mean value.
-                File_object.write(str(y) +", "+ str(z) +", " + str(voltage) + "\n") 
-                print("Recorded data")
-
-        else:
-            #For each cm we want to scan from our array
-            for y in negypositions: 
-                print('Moving Y')
-                #Move the stage one position in mm at a time.
-                sc.moveyto(y) 
-                print('Done moving Y')
-                print('Current position (y,z): (' + str(y) + ',' + str(z) + ')')
-                #Collect data from scope.
-                voltage=t.get_data() 
-                #Wait to ensure data collection occurred.
-                time.sleep(2) 
-                print("Writing to file ...")
-                File_object.write(str(y) +", "+ str(z) +", " + str(voltage) + "\n")
-                
-                print("Recorded data")
-     
-    File_object.close()
 
 #Will prepare the databox in which the waveforms will be stored.
 def make_databox(): 
@@ -139,32 +86,7 @@ def make_databox():
     return d
 
 #Integrates over waveform from the given bounds: a to b
-def channel_integrator(databox, a, b): 
-    #Need to input the column of the databox in which we will save the data
-    CH = databox[1]
-    
-    #Looking for the lowest value in the x value array.
-    min_value = min(CH) 
-    
-    #Correcting for minimum values that are not 0
-    if (min_value) != 0:
-        if min_value < 0: 
-            #If it's negative
-            #Add the lowest value to every entry to bring the lowest value to 0.
-           CH= np.add(CH, abs(min_value)) 
-        else: 
-            #And if it's positive
-            CH = np.add(CH, min_value)
-    
-    #We integrate by adding up the measurements and multiplying by the time scale, acquired from the scope.
-    num = 0
-    for i in CH[a:b+1]:
-        num += i  
-    integral = float(num*float(time_scale)/10) #Divide by 10 to get the units to correspond.
-    print("The integral is ", integral)
-    return integral
-
-def channel_integrator2(databox, pulses): 
+def channel_integrator(databox, pulses): 
     #Need to input the column of the databox in which we will save the data
     CH = databox[1]
     
@@ -310,7 +232,7 @@ def channel_differentiator(databox):
 
     return integrals
 
-def channel_differentiator2(databox):
+def pulse_finder(databox):
     #Will check at what point in time the differences in the voltage measurement derivatives exceed 3 sigma
     x = databox[0]
     y = databox[1]
@@ -334,12 +256,21 @@ def channel_differentiator2(databox):
     
     starts = []
     stops = []
+    
+    #Issue here
+    cond = False
     for e, d in enumerate(der):
-        if d > 1000: starts.append(e) 
-        if d < -1000: stops.append(e)
+        if d > 3.0*std and cond == False:
+            starts.append(e)
+            cond=True
+            continue
+        if d < -3.0*std and cond == True:
+            stops.append(e)
+            cond=False
+            continue
         
-    #print(stops)
-    #print(starts)
+        
+    print(len(starts), len(stops))
     
     for i, val in enumerate(stops):
         if val < starts[0]: stops.pop(i) 
@@ -347,33 +278,16 @@ def channel_differentiator2(databox):
     for i, val in enumerate(starts):
         if val > stops[-1]: starts.pop(i) 
         
-    #print(stops)
-    #print(starts)
+    print(stops)
+    print(starts)
     
     pulses = set(zip(starts, stops))
     #print(pulses)
-    for pulse in pulses: print(pulse[0])
+    #for pulse in pulses: print(pulse[0])
+    
+    print(pulses)
     return pulses
     
-#   
-#    #Providing the index of the interval of interest, we get the indices where the pulses exist.
-#    trig_start, trig_stop = compare(data_interval)
-#    
-#    #Record a positive edge first, and only then can a negative edge be detected.
-#    if (trig_start > trig_stop) and cond:
-#        stop = (pulse_interval[m]*10)+trig_start
-#        cond = False
-#    elif (trig_start < trig_stop):
-#        start = (pulse_interval[m]*10)+trig_stop
-#        cond = True
-#    
-#    if (stop>start):
-#        print("The trigger starts and stops from ", x[start], " to ", x[stop], " in this detected waveform.")
-#    
-#        #We integrate the wave from the detected start and stop times of the pulse, between a positive and negative edge.
-#        integrals.append(channel_integrator(databox, start, stop))
-
-    return integrals
 
 #Scanning with sillyscope.
 def scan_silly(zpositions, ypositions, negypositions): 
@@ -504,45 +418,6 @@ def IPCheck():
         if ipCheck == "yes" or "y" or "oui":
             print("Good! Continuing on...")
     
-def scan_with_TalkingToRigol():
-    IPCheck()
-
-    #Rename the file with a name of your choice.
-    file = input("Enter file name (without extension).  ")
-    
-    #Creating a new folder to save all the data from one scan in one place.
-    current_dir = os.getcwd()  
-    print ("The current working directory is %s" % current_dir)  
-    output_dir = file + name
-    
-    try:  
-        os.mkdir(output_dir)
-    except OSError:
-        print ("Creation of the directory %s failed" % output_dir)
-    else:  
-        print ("Successfully created the directory %s " % output_dir)
-    
-    sc.initialization() #Initialize the linear stage.
-    time.sleep(0.5) #Wait 1s before setting home position.
-    sc.Home() #Home the stage.
-    time.sleep(10)
-    time.sleep(1)
-    print('Ready to take data.')
-    
-    #Scan and take data
-    scan(zpositions, ypositions, negypositions)
-    
-    #Plot the data and save into same folder as the csv
-    os.chdir(output_dir) #Changing the directory so it goes to the correct folder
-    heatmap(file + '.csv')
-    Image_name = file + '.png'
-    plt.savefig(Image_name) 
-    
-    t.Rigol.close()     
-    sc.closeall() #Shut down the modules.
-    time, voltage = np.loadtxt("wave.csv", delimiter = ',', skiprows = 0, unpack = True)
-    wave = [time, voltage]
-    
 def scan_with_SillyScope():
     #IPCheck()
 
@@ -572,10 +447,10 @@ def scan_with_SillyScope():
     #scan(zpositions, ypositions, negypositions)
     
     laser_wave =  Rigol.get_waveform(channel=1, include_x = True)
-    integrate_signal = channel_integrator2(laser_wave, channel_differentiator2(laser_wave))
+    integrate_signal = channel_integrator(laser_wave, pulse_finder(laser_wave))
     s.plot.xy.data(xdata = laser_wave[0], ydata = laser_wave[1])
     
-    t.Rigol.close()     
+    #close scope??  
     sc.closeall() #Shut down the modules.
 
     
@@ -585,56 +460,6 @@ if __name__ == '__main__':
         print("Done! :)")
 
     except:
-        t.Rigol.close()
+        #close scope??  
         print('Error. Consult README for list of common errors and their respective solutions.')
         
-        
-        
-# trash code
-#        
-#def channel_differentiator(databox):
-#    #Will check at what point in time the differences in the voltage measurement derivatives exceed 3 sigma
-#    x = databox[0]
-#    y = databox[1]
-#    der = []
-#    mean = []
-#    
-#    for i in range(len(x)):
-#        if i == len(x)-1:
-#            #When it gets to the last data point.
-#            print("Reached end of dataset.")
-#            break
-#        
-#        #Find the derivatives
-#        der.append((y[i+1] - y[i])/(x[i+1] - x[i]))
-#        mean = np.mean(der)
-#        print("The mean is: ", mean)
-#        std_dev = np.std(der)
-#        print("The std dev is: ", std_dev)
-#        
-#        #Compare the std dev of each
-#        cond = False
-#        if mean > (std_dev) or mean < (-std_dev):
-#            if der[i] > 0:
-#                trig_start = x[i]
-#                print("The positive edge is: ", trig_start)
-#                cond = True
-#            elif(der[i] < 0 and cond):
-#                trig_stop = x[i]
-#                print("The negative edge is: ", trig_stop)
-#                break
-#        
-#        
-#        
-        #    for j in range(len(diff)):
-#        if j == len(diff)-1:
-#            break 
-#        #if (diff[j+1] > 5*diff[j]) or (diff[j+1] < -5*diff[j]):
-#            #If we find a peak, let's classify which edge it is.
-#        
-#            if (diff[j+1] < 0) and cond:
-#                index_of_data_stop = j
-#                break
-#            elif (diff[j+1]>0):
-#                index_of_data_start = j+1
-#                cond = True 
