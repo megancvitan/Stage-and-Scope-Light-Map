@@ -104,6 +104,8 @@ def channel_integrator(databox, pulse_pairs):
         
     #We integrate by adding up the measurements and multiplying by the time scale, acquired from the scope.
     int_arr = []
+    start_times = []
+    stop_times = []
     
     for p in pulse_pairs:
         num = 0.0
@@ -114,10 +116,11 @@ def channel_integrator(databox, pulse_pairs):
             num += i
             integral = float(num*float(time_scale)/100.0) #Divide by 100 to get the units to correspond, the number of points in one cell.
         int_arr.append(integral)
+        start_times.append(a+1)
+        stop_times.append(b)
         #print("The integral is ", integral)
 
-    return int_arr
-    
+    return int_arr, start_times, stop_times
 
 #Comparing pairs of data points and checking the magnitude of the differences to locate the peak in an interval where 1 peak is already suspected to exist.
 def compare(data):
@@ -290,13 +293,6 @@ def pulse_finder(databox):
     start_index = []
     stop_index = list(stops)
 
-    #If the value of a stop index is less than or the value of the first start peak, then we ignore it.
-#    for val in (stops):
-#        if (val < starts[0]):
-#            stop_index.append(val)
-            
-    #After ensuring we begin with a start peak, we make sure that the last peak in the derivatives is a stop peak.
-    #All of the index values of starts must be smaller than the last index of stops.
     for val in (starts):
         if (val < stops[-1]): 
             start_index.append(val)
@@ -351,17 +347,22 @@ def scan_silly(zpositions, ypositions, negypositions):
                     d.insert_header('Y(mm)', y)
                     d.insert_header('Z(mm)', z)
                     
-                    #Load the waveforms and time values in columns in a databox
-                    d['Pulse Signal'] = Rigol.get_waveform(channel = 1, include_x = True)
-                    d['Trigger Signal'] = Rigol.get_waveform(channel = 2, include_x = True)
+                    #Load scope data into databoxes.
+                    pulse_signal = Rigol.get_waveform(channel = 1, include_x = True)
+                    trigger_signal = Rigol.get_waveform(channel = 2, include_x = True)
+                    
+                    #Save to databox for further analysis later on.
+                    d['Pulse Signal'] = pulse_signal[1]
+                    d['Trigger Signal'] = trigger_signal[1]
                     
                     #Will get the bounds of integration, and the integral of the detected waveform.
-                    integrate_signal = channel_differentiator(d['Pulse Signal'])
+                    pairs = pulse_finder(pulse_signal)
+                    integrate_signal, start_times, stop_times = channel_integrator(pulse_signal, pairs)
                     
                     #Save the two different files
                     #The waveforms for each position measurements from a databox, and the position+integral+bounds data in a .csv
                     d.save_file('_Waveforms_' + name + '.csv') 
-                    File_object.write("None" + ", " + str(y) + ", " + str(z) + "," + str(integrate_signal) + "," + "" + "," + "" "\n") 
+                    File_object.write("None" + ", " + str(y) + ", " + str(z) + "," + str(integrate_signal) + "," + str(start_times) + "," + str(stop_times) + "\n") 
                     
                     print("Measuement trial " + n + " of this postition completed.")
                     print("Recorded data.")
@@ -386,16 +387,25 @@ def scan_silly(zpositions, ypositions, negypositions):
                     d.insert_header('Y(mm)', y)
                     d.insert_header('Z(mm)', z)
                     
-                    #Load the waveforms and time values in columns
-                    d['Pulse Signal'] = Rigol.get_waveform(channel = 1, include_x = True)
-                    d['Trigger Signal'] = Rigol.get_waveform(channel = 2, include_x = True)
+                    #Load scope data into databoxes.
+                    pulse_signal = Rigol.get_waveform(channel = 1, include_x = True)
+                    trigger_signal = Rigol.get_waveform(channel = 2, include_x = True)
+                    
+                    #Save to databox for further analysis later on.
+                    d['Pulse Signal'] = pulse_signal[1]
+                    d['Trigger Signal'] = trigger_signal[1]
+                    
+                    #Will get the bounds of integration, and the integral of the detected waveform.
+                    pairs = pulse_finder(pulse_signal)
+                    integrate_signal, start_times, stop_times = channel_integrator(pulse_signal, pairs)
                     
                     #Save the two different files
-                    #d.save_file(name + '.csv')
-                    #File_object.write("None" + ", " + str(y) + ", " + str(z) + "," + str(channel_integrator(1)) + "\n") 
+                    #The waveforms for each position measurements from a databox, and the position+integral+bounds data in a .csv
+                    d.save_file('_Waveforms_' + name + '.csv') 
+                    File_object.write("None" + ", " + str(y) + ", " + str(z) + "," + str(integrate_signal) + "," + str(start_times) + "," + str(stop_times) + "\n") 
                     
-                    print("Measuement trial " + n + " of this postition.")
-                    print("Recorded data")
+                    print("Measuement trial " + n + " of this postition completed.")
+                    print("Recorded data.")
                     
                     time.sleep(2) #Wait to ensure data collection occurred.
                     Rigol.clear() #Clears the scope.
@@ -417,7 +427,7 @@ def heatmap(filenameWithDir):
     print('Reading from data file...')
     df1 = pd.pivot_table(pd.read_csv(filenameWithDir),
                         index='Y (mm)',
-                        values=' Voltage (V)',
+                        values='Light Integral',
                         columns=' Z (mm)')
     df1.head()
     print('Read from data file...')
@@ -441,47 +451,43 @@ def IPCheck():
             print("Good! Continuing on...")
     
 def scan_with_SillyScope():
-    #IPCheck()
+    IPCheck()
 
     #Rename the file with a name of your choice.
-    #file = input("Enter file name (without extension).  ")
+    file = input("Enter file name (without extension).  ")
     
     #Creating a new folder to save all the data from one scan in one place.
-#    current_dir = os.getcwd()  
-#    print ("The current working directory is %s" % current_dir)  
-#    output_dir = file + name
-#    
-#    try:  
-#        os.mkdir(output_dir)
-#    except OSError:
-#        print ("Creation of the directory %s failed" % output_dir)
-#    else:  
-#        print ("Successfully created the directory %s " % output_dir)
+    current_dir = os.getcwd()  
+    print ("The current working directory is %s" % current_dir)  
+    output_dir = file + name
     
-    #sc.initialization() #Initialize the linear stage.
-    #time.sleep(0.5) #Wait 1s before setting home position.
-    #sc.Home() #Home the stage.
-    #time.sleep(10)
+    try:  
+        os.mkdir(output_dir)
+    except OSError:
+        print ("Creation of the directory %s failed" % output_dir)
+    else:  
+        print ("Successfully created the directory %s " % output_dir)
+    
+    sc.initialization() #Initialize the linear stage.
+    time.sleep(0.5) #Wait 1s before setting home position.
+    sc.Home() #Home the stage.
+    time.sleep(10)
 
     print('Ready to take data.')
     
     #Scan and take data
-    #scan(zpositions, ypositions, negypositions)
-    
-    laser_wave =  Rigol.get_waveform(channel=1, include_x = True)
-    integrate_signal = channel_integrator(laser_wave, pulse_finder(laser_wave))
-    s.plot.xy.data(xdata = laser_wave[0], ydata = laser_wave[1])
-    
-    #close scope??  
+    scan_silly(zpositions, ypositions, negypositions)
+
+    #close scope without talkingtorigol?
     sc.closeall() #Shut down the modules.
 
     
 if __name__ == '__main__':
     try:
-        scan_with_SillyScope()
+#        scan_with_SillyScope()
         print("Done! :)")
 
     except:
-        #close scope??  
+        #close scope without talkingtorigol?
         print('Error. Consult README for list of common errors and their respective solutions.')
         
