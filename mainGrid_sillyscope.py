@@ -30,7 +30,7 @@ output_dir = ""
 time_scale = Rigol.query('TIM:SCALE?')
 
 #Default
-#Grid positions of the area that will be mapped - don't go past 55 mm
+#Grid positions of the area that will be mapped - don't go past 55 mm or else you may encounter problems.
 
 #zpositions = list(range(10, 50, 1)) #Given a positive number, this motor will move away from home.
 #ypositions = list(range(10, 50, 1)) #Given a positive number, this motor will move away from home.
@@ -81,36 +81,38 @@ def make_databox():
     
     #Initialize the column names
     d['Integral Value'] = None
-    d['Trigger Signal'] = None
-    
+    d['Trigger Signal START'] = None
+    d['Trigger Signal STOP'] = None
     return d
 
 #Integrates over waveform from the given bounds: a to b
-def channel_integrator(databox, pulses): 
-    #Need to input the column of the databox in which we will save the data
+def channel_integrator(databox, pulse_pairs): 
+    #Need to input the column of the databox in which we will save the data. The [1] will access the voltages.
     CH = databox[1]
     
-    #Looking for the lowest value in the x value array.
+    #Looking for the lowest value in the array.
     min_value = min(CH) 
     
     #Correcting for minimum values that are not 0
     if (min_value) != 0:
         if min_value < 0: 
-            #If it's negative
-            #Add the lowest value to every entry to bring the lowest value to 0.
+            #If it's negative, add the lowest value to every entry to bring the lowest value to 0.
            CH= np.add(CH, abs(min_value)) 
         else: 
-            #And if it's positive
-            CH = np.add(CH, min_value)
-     
+            #And if it's positive, add the negative of the minimum value to bring every data point down by that same amount.
+            CH = np.add(CH, -min_value)
         
     #We integrate by adding up the measurements and multiplying by the time scale, acquired from the scope.
     int_arr = []
-    for pulse in pulses:
+    
+    for p in pulse_pairs:
         num = 0.0
-        for i in CH[pulse[0]:pulse[1]+1]:
+        a = pulse_pairs[0][0] - 1
+        b = pulse_pairs[0][1]
+        for i in CH[a:b]:
+            #The sum of all the points in the wave we want to integrate from the indices retrieved from pulse_finder.
             num += i
-            integral = float(num*float(time_scale)/10.0) #Divide by 10 to get the units to correspond.
+            integral = float(num*float(time_scale)/100.0) #Divide by 100 to get the units to correspond, the number of points in one cell.
         int_arr.append(integral)
         #print("The integral is ", integral)
 
@@ -150,14 +152,20 @@ def compare(data):
         
     return index_of_data_start, index_of_data_stop
 
-#Finds the bounds for the integration of the waveform later on.
 def channel_differentiator(databox):
+    #Finds the bounds for the integration of the waveform.
     #Will check at what point in time the differences in the voltage measurement derivatives exceed 3 sigma
+    
+    #Important variables
     x = databox[0]
     y = databox[1]
     der = []
     mu = []
     pulse_interval = []
+    cond = False
+    stop = 0
+    start = 0
+    integrals = []
     
     #Find the derivatives and store them away.
     for i in range(len(x)):
@@ -166,13 +174,15 @@ def channel_differentiator(databox):
             print("Reached end of dataset.")
             break 
         der.append((y[i+1] - y[i])/(x[i+1] - x[i]))
-    plt.figure()
-    plt.plot(range(1199),der)
-    plt.show()
-    plt.figure()
-    print(len(der))
-    print(max(der))
-    print(min(der))
+        
+    #Plot the waveform and the derivatives
+#    plt.figure()
+#    plt.plot(range(1199),der)
+#    plt.show()
+#    plt.figure()
+#    print(len(der))
+#    print(max(der))
+#    print(min(der))
     
     #Take the derivatives and separate them into intervals of 10.
     for j in range(len(der)):
@@ -202,10 +212,6 @@ def channel_differentiator(databox):
             pulse_interval.append(l)
             print("A pulse can be found in the", l,"th interval.")
          
-    cond = False
-    stop = 0
-    start = 0
-    integrals = []
     #We go over the individual data points in the intervals of interest.
     for m in range(len(pulse_interval)):
         y = list(y)
@@ -245,50 +251,66 @@ def pulse_finder(databox):
             print("Reached end of dataset.")
             break 
         der.append((y[i+1] - y[i])/(x[i+1] - x[i]))
+        
+    #Plot the waveform and its derivatives.    
     plt.figure()
     plt.plot(range(1199),der)
     plt.show()
     plt.figure()
     
+    #Get the standard deviation so we can compare the derivatives.
     std = np.std(np.array(der))
+    print("The standard deviation is: ", std)
     
-    print("std: %f", std)
-    
+    #Going through the derivatives and finding the indices at which there are positive and negative edges.
     starts = []
     stops = []
-    
-    #Issue here
+
+    #Set a condition to false, so we can detect a start prior to a stop.
     cond = False
-    for e, d in enumerate(der):
-        if d > 3.0*std and cond == False:
-            starts.append(e)
+    for ind, deriv in enumerate(der):
+        #If a derivative has a value greater than 3 sigma
+        if deriv > 3.0*std and cond == False:
+            #It must be a start peak, so we keep it and change the condition to true.
+            #Saving an array of indices where the starts are found.
+            starts.append(ind)
             cond=True
             continue
-        if d < -3.0*std and cond == True:
-            stops.append(e)
+        #If a derivative has a value less than -3 sigma, and a positive edge has already been detected
+        if deriv < -3.0*std and cond == True:
+            #It must be a stop peak, so we save the index, and change the condition in preparation of the next start peak.
+            #Saving an array of indices where the stops are found.
+            stops.append(ind)
             cond=False
             continue
         
-        
-    print(len(starts), len(stops))
-    
-    for i, val in enumerate(stops):
-        if val < starts[0]: stops.pop(i) 
-        
-    for i, val in enumerate(starts):
-        if val > stops[-1]: starts.pop(i) 
-        
-    print(stops)
-    print(starts)
-    
-    pulses = set(zip(starts, stops))
-    #print(pulses)
-    #for pulse in pulses: print(pulse[0])
-    
-    print(pulses)
-    return pulses
-    
+    print("starts",starts)
+    print("stops",stops)
+    #Assume that a start and a stop cannot occur at the same time.
+    start_index = []
+    stop_index = list(stops)
 
+    #If the value of a stop index is less than or the value of the first start peak, then we ignore it.
+#    for val in (stops):
+#        if (val < starts[0]):
+#            stop_index.append(val)
+            
+    #After ensuring we begin with a start peak, we make sure that the last peak in the derivatives is a stop peak.
+    #All of the index values of starts must be smaller than the last index of stops.
+    for val in (starts):
+        if (val < stops[-1]): 
+            start_index.append(val)
+    
+    print("start_index",start_index)
+    print("stop_index",stop_index)
+    #The start and stop indices are paired together, and turned into a list.
+    pulses = set(zip(start_index, stop_index))
+    print("pulses",pulses)
+    pulse_pairs = list(pulses)
+    print("pulse_pairs",pulse_pairs)
+    
+    return pulse_pairs
+    
 #Scanning with sillyscope.
 def scan_silly(zpositions, ypositions, negypositions): 
     #Moves stage and collects data along y axis.
