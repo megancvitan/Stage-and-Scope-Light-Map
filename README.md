@@ -43,7 +43,8 @@ There is an option to use it in this experiment if you are looking to record wav
 
 * It would be very useful to be able to use sillyscope with the Rohde & Schwarz oscilloscope in the lab. This has not yet been implemented in sillyscope, but one can attempt to do so by using the compatible commands for a R&S scope, found in the manual: [R&S Manual.](https://www.batronix.com/files/Rohde-&-Schwarz/Oscilloscope/RTM3000/RTM3000_UserManual.pdf)
 * Connecting the R&S scope to the computer involves connecting an ethernet cable and then clicking on the square found in the top right corner of the scope's screen. Click on 'Ethernet' and you should see updates on the connection status.
-* sillyscope_with_R&S contains the edits made towards this goal.
+
+    *sillyscope_with_R&S* contains the edits made towards this goal.
 
 ----- **CONTACT INFORMATION** -----
 
