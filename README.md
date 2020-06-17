@@ -1,10 +1,4 @@
 # Stage and Scope Light Map
------ **PROJECT SUMMARY** -----
-
-Using a linear stage to image the light intensity of an LED with a photodiode. A stage will move and collect data over a predetermined grid. 
-The data will be displayed in the form of a heatmap in order to demonstrate regions of varying light intensities. 
-
-One can also record waveforms from an oscilloscope, identify pulses, and integrate between a specified range to get values for light intensity.
 
 ----- **ABOUT FILES** -----
 
